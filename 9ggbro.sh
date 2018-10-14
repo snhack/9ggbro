@@ -21,7 +21,7 @@ pathForKeys="./"
 menu(){
     cmd=(dialog --backtitle "Nginx configurator" --cancel-label "Exit" --menu "Menu" 10 70 16)
     options=("List" "View and modify Vhost"
-        "Write" "Write configuration in config file and reload Nginx"
+        "Add" "Add Vhost to configuration"
         "Information" "Various information and admin shell")
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     status=$?
@@ -31,19 +31,16 @@ menu(){
                 List)
                     listMenu
                 ;;
-                Write)
-                    writeConfigFile
+                Add)
+                    serverNameMenu
                 ;;
                 Information)
-                    #writeConfigFile
                     echo "Info"
                 ;;
             esac
         ;;
         ${DIALOG_CANCEL})
             clear
-            echo See ya
-            sleep 3
         ;;
     esac
 }
@@ -52,22 +49,181 @@ listMenu(){
     options=()
     
     for index in ${!serversNames[@]};do
-        options+=(${serversNames[$index]})
-        options+=(${serversSSL[$index]})
+        options+=("$index-${serversNames[$index]}")
+        if [ ${serversSSL[$index]} == "on" ]
+        then
+            date=$(getCertificateExpiration ${serversCertificate[$index]})
+            options+=("https->$date")
+        else
+            options+=(" ")
+        fi
     done
     
-    cmd=(dialog --backtitle "list" --cancel-label "Back" --menu "list" 15 70 15)
+    cmd=(dialog --backtitle "List" --cancel-label "Back" --menu "List" 15 70 15)
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
         ${DIALOG_OK})
-            echo "test"
+            actionMenu ${selection}
         ;;
         ${DIALOG_CANCEL})
-            echo "test"
+            menu
         ;;
         ${DIALOG_ESC})
-            echo "test"
+            menu
+        ;;
+    esac
+}
+
+actionMenu(){
+    
+    serverId=$(echo $1 | cut -d '-' -f1)
+    
+    options=()
+    
+    for property in "${dataNames[@]}"
+    do
+        propertyPlace=$property[$serverId]
+        options+=("$property")
+        options+=("${!propertyPlace}")
+    done
+    
+    options+=("Delete" "")
+    
+    cmd=(dialog --backtitle "Edition" --cancel-label "Back" --menu "Edition" 15 70 15)
+    selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            if [ ${selection} == "Delete" ]
+            then
+                deleteFromInventory $serverId
+            else
+                modificationMenu ${selection} $serverId
+            fi
+        ;;
+        ${DIALOG_CANCEL})
+            menu
+        ;;
+        ${DIALOG_ESC})
+            menu
+        ;;
+    esac
+}
+
+modificationMenu(){
+    serverId=$2
+    propertyName=$1
+    propertyPlace=$propertyName[$serverId]
+    result=$(dialog --backtitle "Modification" --cancel-label "Back" --inputbox "New value for $propertyName" 10 40 "${!propertyPlace}" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            editProperty $serverId $propertyName ${result} 
+        ;;
+        ${DIALOG_CANCEL})
+            actionMenu $serverId
+        ;;
+        ${DIALOG_ESC})
+            actionMenu $serverId
+        ;;
+    esac
+}
+
+serverNameMenu(){
+    result=$(dialog --backtitle "New server name" --cancel-label "Back" --inputbox "New server name" 10 40 "exemple.com" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            serverPortMenu ${result}
+        ;;
+        ${DIALOG_CANCEL})
+            menu
+        ;;
+        ${DIALOG_ESC})
+            menu
+        ;;
+    esac
+}
+
+serverPortMenu(){
+    serverName=$1
+    result=$(dialog --backtitle "New server port" --cancel-label "Back" --inputbox "New server port" 10 40 "80" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            serverTypeMenu $serverName ${result}
+        ;;
+        ${DIALOG_CANCEL})
+            serverNameMenu
+        ;;
+        ${DIALOG_ESC})
+            menu
+        ;;
+    esac
+}
+
+serverTypeMenu(){
+    serverName=$1
+    serverPort=$2
+    cmd=(dialog --backtitle "New server type" --cancel-label "Back" --menu "New server type" 10 70 16)
+    options=("local" ""
+             "proxy_pass" "")
+    selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            serverDestinationMenu $serverName $serverPort ${selection}
+        ;;
+        ${DIALOG_CANCEL})
+            serverPortMenu $serverName
+        ;;
+        ${DIALOG_ESC})
+            menu
+        ;;
+    esac
+}
+
+serverDestinationMenu(){
+    serverName=$1
+    serverPort=$2
+    serverType=$3
+    
+    result=$(dialog --backtitle "New server destination" --cancel-label "Back" --inputbox "New server destination" 10 40 "Destination" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            serverSSLMenu $serverName $serverPort $serverType ${result}
+        ;;
+        ${DIALOG_CANCEL})
+            serverTypeMenu $serverName $serverPort
+        ;;
+        ${DIALOG_ESC})
+            menu
+        ;;
+    esac
+}
+
+serverSSLMenu(){
+    serverName=$1
+    serverPort=$2
+    serverType=$3
+    serverDestination=$4
+    
+    cmd=(dialog --backtitle "New server SSL configuration" --cancel-label "Back" --menu "New server SSL configuration" 10 70 16)
+    options=("on" ""
+             "off" "")
+    selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
+    status=$?
+    case ${status} in
+        ${DIALOG_OK})
+            addVhost $serverName $serverPort $serverType $serverDestination ${selection}
+        ;;
+        ${DIALOG_CANCEL})
+            serverDestinationMenu $serverName $serverPort $serverType
+        ;;
+        ${DIALOG_ESC})
+            menu
         ;;
     esac
 }
@@ -104,7 +260,7 @@ loadInventory(){
         [ $(echo $line | grep "server_name" >/dev/null 2>&1; echo $?) -eq "0" ] && serversNames[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "listen" >/dev/null 2>&1; echo $?) -eq "0" ] && serversPorts[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "ssl on" >/dev/null 2>&1; echo $?) -eq "0" ] && serversSSL[$i]="on"
-        [ $(echo $line | grep "ssl_certificate" >/dev/null 2>&1; echo $?) -eq "0" ] && serversCertificate[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
+        [ $(echo $line | grep "ssl_certificate " >/dev/null 2>&1; echo $?) -eq "0" ] && serversCertificate[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "ssl_certificate_key" >/dev/null 2>&1; echo $?) -eq "0" ] && serversKey[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "root /" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="root" && serversLocationData[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "proxy_pass" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="proxy_pass" && serversLocationData[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
@@ -126,8 +282,8 @@ addVhost(){
         if [ -z "$6" ]
         then
             sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $pathForKeys$1.key -out $pathForCertificates$1.crt
-            serversCertificate[$newID]="/etc/ssl/certs/$1.crt"
-            serversKey[$newID]="/etc/ssl/private/$1.key"
+            serversCertificate[$newID]="$pathForCertificates$1.crt"
+            serversKey[$newID]="$pathForKeys$1.key"
         else
             serversCertificate[$newID]=$6
             serversKey[$newID]=$7
@@ -135,6 +291,10 @@ addVhost(){
     else
         serversSSL[$newID]="off"
     fi
+    
+    writeConfigFile
+    
+    menu
 }
 
 editProperty(){
@@ -145,10 +305,14 @@ editProperty(){
     propertyName=$propertyName[$vhostID]
     
     eval $propertyName=$newValue
+    
+    writeConfigFile
+    
+    actionMenu "$vhostID-return"
 }
 
 writeConfigFile(){
-    path="./test.conf"
+    path=$NginxConfigFilePath
     echo "" > $path
     for index in ${!serversNames[@]};do
         echo "server {" >> $path
@@ -168,7 +332,7 @@ writeConfigFile(){
     
     systemctl reload nginx
     
-    if [ $useFirewall == true ]
+    if [ $useFirewall ]
     then
         setFirewallRules
     fi
@@ -180,7 +344,8 @@ setFirewallRules(){
 
 getCertificateExpiration(){
     certificatePath=$1
-    return openssl x509 -enddate -noout -in $certificatePath
+    expirationDate=$(date -jf "%b %e %H:%M:%S %Y %Z" "$(openssl x509 -enddate -noout -in "$certificatePath"|cut -d= -f 2)" +"%d/%m/%Y")
+    echo $expirationDate
 }
 
 deleteFromInventory(){
@@ -190,6 +355,10 @@ deleteFromInventory(){
         property=$property[$idToRemove]
         eval unset $property
     done
+    
+    writeConfigFile
+    
+    listMenu
 }
 
 
