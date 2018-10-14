@@ -220,8 +220,6 @@ serverSSLMenu(){
     status=$?
     case ${status} in
         ${DIALOG_OK})
-            ip=$(hostname --ip-address)
-            dialog --backtitle "$scriptName" --title "New server information" --msgbox "$ip:$serverPort" 10 70
             addVhost $serverName $serverPort $serverType $serverDestination ${selection}
         ;;
         ${DIALOG_CANCEL})
@@ -298,6 +296,9 @@ addVhost(){
     fi
     
     writeConfigFile
+    
+    ip=$(hostname --ip-address)
+    dialog --backtitle "$scriptName" --title "New server information" --msgbox "$ip:$serverPort" 10 70
     
     menu
 }
