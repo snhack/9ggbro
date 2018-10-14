@@ -220,6 +220,8 @@ serverSSLMenu(){
     status=$?
     case ${status} in
         ${DIALOG_OK})
+            ip=$(hostname --ip-address)
+            dialog --backtitle "$scriptName" --title "New server information" --msgbox "$ip:$serverPort" 10 70
             addVhost $serverName $serverPort $serverType $serverDestination ${selection}
         ;;
         ${DIALOG_CANCEL})
@@ -342,7 +344,9 @@ writeConfigFile(){
 }
 
 setFirewallRules(){
-    echo "Test"
+    for index in ${!serversNames[@]};do
+        sudo firewall-cmd --zone=public --add-port=${serversPorts[$index]}/tcp
+    done
 }
 
 getCertificateExpiration(){
