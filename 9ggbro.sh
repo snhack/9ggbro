@@ -1,11 +1,12 @@
 #!/bin/bash
 
 #9ggbro
-#Backup utilitary
+#Nginx configurator
 #08/10/2018
 #Anthony DOMINGUE & Etienne SELLAN
 
 #config
+scriptName="Nginx configurator"
 NginxConfigFilePath="./dev.conf"
 useFirewall=false
 pathForCertificates="./"
@@ -19,10 +20,10 @@ pathForKeys="./"
 : ${DIALOG_ESC=255}
 
 menu(){
-    cmd=(dialog --backtitle "Nginx configurator" --cancel-label "Exit" --menu "Menu" 10 70 16)
+    cmd=(dialog --backtitle "$scriptName" --cancel-label "Exit" --menu "Menu" 10 70 16)
     options=("List" "View and modify Vhost"
         "Add" "Add Vhost to configuration"
-        "Information" "Various information and admin shell")
+        "Information" "Informations about this webserver")
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
@@ -35,7 +36,9 @@ menu(){
                     serverNameMenu
                 ;;
                 Information)
-                    echo "Info"
+                    infos=$(NginxCheckStatus)
+                    dialog --backtitle "$scriptName" --title "Webserver informations" --msgbox "$infos" 10 70
+                    menu
                 ;;
             esac
         ;;
@@ -59,7 +62,7 @@ listMenu(){
         fi
     done
     
-    cmd=(dialog --backtitle "List" --cancel-label "Back" --menu "List" 15 70 15)
+    cmd=(dialog --backtitle "$scriptName" --cancel-label "Back" --menu "List" 15 70 15)
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
@@ -90,7 +93,7 @@ actionMenu(){
     
     options+=("Delete" "")
     
-    cmd=(dialog --backtitle "Edition" --cancel-label "Back" --menu "Edition" 15 70 15)
+    cmd=(dialog --backtitle "$scriptName" --cancel-label "Back" --menu "Edition" 15 70 15)
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
@@ -115,7 +118,7 @@ modificationMenu(){
     serverId=$2
     propertyName=$1
     propertyPlace=$propertyName[$serverId]
-    result=$(dialog --backtitle "Modification" --cancel-label "Back" --inputbox "New value for $propertyName" 10 40 "${!propertyPlace}" 2>&1 >/dev/tty)
+    result=$(dialog --backtitle "$scriptName" --cancel-label "Back" --inputbox "New value for $propertyName" 10 40 "${!propertyPlace}" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
         ${DIALOG_OK})
@@ -131,7 +134,7 @@ modificationMenu(){
 }
 
 serverNameMenu(){
-    result=$(dialog --backtitle "New server name" --cancel-label "Back" --inputbox "New server name" 10 40 "exemple.com" 2>&1 >/dev/tty)
+    result=$(dialog --backtitle "$scriptName" --cancel-label "Back" --inputbox "New server name" 10 40 "exemple.com" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
         ${DIALOG_OK})
@@ -148,7 +151,7 @@ serverNameMenu(){
 
 serverPortMenu(){
     serverName=$1
-    result=$(dialog --backtitle "New server port" --cancel-label "Back" --inputbox "New server port" 10 40 "80" 2>&1 >/dev/tty)
+    result=$(dialog --backtitle "$scriptName" --cancel-label "Back" --inputbox "New server port" 10 40 "80" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
         ${DIALOG_OK})
@@ -166,7 +169,7 @@ serverPortMenu(){
 serverTypeMenu(){
     serverName=$1
     serverPort=$2
-    cmd=(dialog --backtitle "New server type" --cancel-label "Back" --menu "New server type" 10 70 16)
+    cmd=(dialog --backtitle "$scriptName" --cancel-label "Back" --menu "New server type" 10 70 16)
     options=("local" ""
              "proxy_pass" "")
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
@@ -189,7 +192,7 @@ serverDestinationMenu(){
     serverPort=$2
     serverType=$3
     
-    result=$(dialog --backtitle "New server destination" --cancel-label "Back" --inputbox "New server destination" 10 40 "Destination" 2>&1 >/dev/tty)
+    result=$(dialog --backtitle "$scriptName" --cancel-label "Back" --inputbox "New server destination" 10 40 "Destination" 2>&1 >/dev/tty)
     status=$?
     case ${status} in
         ${DIALOG_OK})
@@ -210,7 +213,7 @@ serverSSLMenu(){
     serverType=$3
     serverDestination=$4
     
-    cmd=(dialog --backtitle "New server SSL configuration" --cancel-label "Back" --menu "New server SSL configuration" 10 70 16)
+    cmd=(dialog --backtitle "$scriptName" --cancel-label "Back" --menu "New server SSL configuration" 10 70 16)
     options=("on" ""
              "off" "")
     selection=$("${cmd[@]}" "${options[@]}" 2>&1 >/dev/tty)
@@ -364,12 +367,10 @@ deleteFromInventory(){
 
 #execution
 
-loadInventory
-menu
-#deleteFromInventory 2
-#addVhost "test.fr" 80 "proxy_pass" "https://google.fr" "on"
-#getCertificateExpiration "./test.fr.crt"
-#writeConfigFile
-
-#tmp=${dataNames[5]}
-#echo $tmp
+if [ $( dialog --help >/dev/null 2>&1; echo $?) -eq "0" ]
+then
+    loadInventory
+    menu
+else
+    echo "Sorry, you must install dialog"
+fi
