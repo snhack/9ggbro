@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #9ggbro
-#Nginx configurator
-#08/10/2018
+#Nginx ServerBlocks Manager
+#14/10/2018
 #Anthony DOMINGUE & Etienne SELLAN
 
 #config
-scriptName="Nginx configurator"
+scriptName="Nginx ServerBlocks Manager"
 NginxConfigFilePath="./dev.conf"
 useFirewall=false
 pathForCertificates="./"
@@ -260,10 +260,12 @@ loadInventory(){
     echo "Loading inventory..."
     
     dataNames=("serversNames" "serversPorts" "serversSSL" "serversCertificate" "serversKey" "serversLocationType" "serversLocationData")
-    
+
+    loadCounter="0"
+    iMax=$(grep -c "server {" $NginxConfigFilePath)
     i=-1
     while IFS= read -r line;do
-        
+        echo ${loadCounter} | dialog --title "Loading inventory" --gauge "Please wait" 10 70 0
         [ $(echo $line | grep "server {" >/dev/null 2>&1; echo $?) -eq "0" ] && ((i++)) && serversSSL[$i]="off"
         
         [ $(echo $line | grep "server_name" >/dev/null 2>&1; echo $?) -eq "0" ] && serversNames[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
@@ -273,7 +275,7 @@ loadInventory(){
         [ $(echo $line | grep "ssl_certificate_key" >/dev/null 2>&1; echo $?) -eq "0" ] && serversKey[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "root /" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="root" && serversLocationData[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo $line | grep "proxy_pass" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="proxy_pass" && serversLocationData[$i]=$( echo $line | cut -d ' ' -f2 | tr -d ';' )
-    
+        loadCounter=$(echo "scale=2; $i/${iMax}*100" | bc -l)
     done < $NginxConfigFilePath
     
     echo "Inventory complete !"
