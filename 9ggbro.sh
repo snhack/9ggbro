@@ -276,7 +276,7 @@ loadInventory(){
         [ $(echo ${line} | grep "ssl_certificate_key" >/dev/null 2>&1; echo $?) -eq "0" ] && serversKey[$i]=$( echo ${line} | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo ${line} | grep "root /" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="root" && serversLocationData[$i]=$( echo ${line} | cut -d ' ' -f2 | tr -d ';' )
         [ $(echo ${line} | grep "proxy_pass" >/dev/null 2>&1; echo $?) -eq "0" ] && serversLocationType[$i]="proxy_pass" && serversLocationData[$i]=$( echo ${line} | cut -d ' ' -f2 | tr -d ';' )
-        
+
         loadCounter=$(echo "scale=2; $i/${iMax}*100" | bc -l)
 
     done < ${nginxConfigFilePath}
@@ -390,8 +390,3 @@ else
     echo "Sorry, you must install dialog"
 fi
 
-
-for i in $(seq 0 10 100)
-do sleep 1; 
-    echo $i | dialog --gauge "Please wait" 10 70 0
-done
