@@ -220,7 +220,13 @@ serverSSLMenu(){
     status=$?
     case ${status} in
         ${DIALOG_OK})
-            addVhost $serverName $serverPort $serverType $serverDestination ${selection}
+            if [ ${selection} == "off" || $(openssl --help >/dev/null 2>&1; echo $?) -eq "0" ]
+            then
+                addVhost $serverName $serverPort $serverType $serverDestination ${selection}
+            else
+                dialog --backtitle "$scriptName" --title "OpenSSL installation" --msgbox "You must install OpenSSL" 10 70
+                menu
+            fi
         ;;
         ${DIALOG_CANCEL})
             serverDestinationMenu $serverName $serverPort $serverType
