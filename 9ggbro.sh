@@ -358,7 +358,7 @@ setFirewallRules(){
 
 getCertificateExpiration(){
     certificatePath=$1
-    expirationDate=$(date -jf "%b %e %H:%M:%S %Y %Z" "$(openssl x509 -enddate -noout -in "$certificatePath"|cut -d= -f 2)" +"%d/%m/%Y")
+    expirationDate=$(openssl x509 -enddate -noout -in "$certificatePath"|cut -d= -f 2)
     echo $expirationDate
 }
 
